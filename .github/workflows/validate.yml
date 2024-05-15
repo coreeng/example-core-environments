@@ -1,0 +1,36 @@
+name: Validate
+
+on: workflow_call
+
+jobs:
+  environments:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Yamale
+        id: setup-yamale
+        run: pip install yamale
+
+      - name: Validate Environments
+        id: environments-validate
+        working-directory: environments
+        shell: bash
+        run: make environments-validate
+
+  tenants:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Yamale
+        id: setup-yamale
+        run: pip install yamale
+
+      - name: Validate Tenants
+        id: tenants-validate
+        working-directory: tenants
+        shell: bash
+        run: make tenants-validate

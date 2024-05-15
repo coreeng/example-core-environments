@@ -1,0 +1,40 @@
+name: CI
+
+on:
+  pull_request:
+    branches:
+      - main
+
+# only allow one CI workflow at a time per ref to be running
+concurrency:
+  group: actions-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  matrix:
+    name: Matrix
+    uses: coreeng/p2p/.github/workflows/platform-environment-matrix.yaml@v1
+
+  validate:
+    uses: ./.github/workflows/validate.yml
+
+  ci:
+    name: CI
+    needs:
+      - matrix
+    uses: coreeng/p2p/.github/workflows/platform-ci.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    with:
+      environment: ${{ matrix.environment }}
+      platform: ${{ matrix.platform }}
+      release: ${{ matrix.release }}
+    secrets:
+      cecg-registry-username: ${{ secrets.CECG_DOCKER_USERNAME }}
+      cecg-registry-secret: ${{ secrets.CECG_DOCKER_SECRET }}

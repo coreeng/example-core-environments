@@ -1,0 +1,10 @@
+name: tenants
+parent: root
+description: "Parent tenant for users of the core platform"
+contactEmail: tenants@cecg.io
+costCentre: tenants
+environments:
+  - example-aws
+  - example-azure
+  - example-gcp
+repos: []
