@@ -1,0 +1,76 @@
+#!/bin/bash
+
+# Use the first argument as the environment name, and the second a release override
+ENV=$1
+RELEASE_OVERRIDE=$2
+
+set -euo pipefail
+
+# Define some constants
+RELEASE_REPO="ghcr.io/coreeng/example-core-platform"
+DOCKER_ARGS=(--rm -it)
+
+TENANTS_PATH="tenants"
+TENANTS_SCHEMA="${TENANTS_PATH}/schema.yaml"
+
+ENVIRONMENTS_PATH="environments"
+ENVIRONMENTS_SCHEMA="${ENVIRONMENTS_PATH}/schema.yaml"
+CONFIG_FILE="config.yaml"
+
+
+
+# Show helpful message when called without arguments
+if [ -z "${ENV}" ] ; then
+	printf "Usage:\n  %s environment_name [release_version]\n" "$0"
+	if [ -d "${ENVIRONMENTS_PATH}" ] ; then
+		printf "\nValid environments:\n"
+		find "${ENVIRONMENTS_PATH}" -name "${CONFIG_FILE}"| cut -f2 -d/ | sed -e "s/^/  /"
+	fi
+	exit 1
+fi
+
+# Confirm environment config exists
+CONFIG="${ENVIRONMENTS_PATH}/${ENV}/${CONFIG_FILE}"
+if ! [ -f "${CONFIG}" ] ; then
+	echo "ERROR: Missing or inaccessible '${CONFIG}'"
+	exit 1
+fi
+
+# Confirm schemas are accessible
+for SCHEMA in "${TENANTS_SCHEMA}" "${ENVIRONMENTS_SCHEMA}" ; do
+	if ! [ -f "${SCHEMA}" ] ; then
+		echo "ERROR: Missing or inaccessible '${SCHEMA}'"
+		exit 1
+	fi
+done
+
+# Parse environment release and confirm it's valid
+RELEASE_CONFIG=$(yq '.release' "${CONFIG}")
+if [ "${RELEASE_CONFIG}" == "null" ] ; then
+	echo "ERROR: Missing or invalid 'release' in '${CONFIG}'"
+	exit 1
+fi
+
+# Override release if a specific version was specified as an argument
+if [ -n "${RELEASE_OVERRIDE}" ] && [ "${RELEASE_OVERRIDE}" != "${RELEASE_CONFIG}" ] ; then
+	RELEASE="${RELEASE_OVERRIDE}"
+	DOCKER_ARGS+=("--pull=always")
+else
+	RELEASE="${RELEASE_CONFIG}"
+fi
+
+echo "--- CLI ${RELEASE} session for '${ENV}'"
+if [ "${RELEASE}" != "${RELEASE_CONFIG}" ] ; then
+	echo "WARNING: Using ${RELEASE} instead of ${RELEASE_CONFIG} specified in configuration"
+fi
+
+docker run "${DOCKER_ARGS[@]}" \
+	-v ~/.aws/:/root/.aws \
+	-v ~/.azure/:/root/.azure \
+	-v ~/.config/gcloud/:/root/.config/gcloud \
+	-v "${PWD}/${CONFIG}:/app/${CONFIG}" \
+	-v "${PWD}/${ENVIRONMENTS_SCHEMA}:/app/${ENVIRONMENTS_SCHEMA}" \
+	-v "${PWD}/${TENANTS_PATH}/:/app/${TENANTS_PATH}/" \
+	-e ENV="${ENV}" -e PS1="$ENV"':$PWD # ' \
+	"${RELEASE_REPO}:${RELEASE}" \
+	bash

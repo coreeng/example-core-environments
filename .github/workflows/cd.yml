@@ -1,0 +1,36 @@
+name: CD
+
+on:
+  push:
+    branches:
+      - main
+
+# only allow one workload at a time with the concurrency-id "actions-main" to be running
+# this can be parameterised by github action context variables if needed
+concurrency: actions-main
+
+jobs:
+  matrix:
+    name: Matrix
+    uses: coreeng/p2p/.github/workflows/platform-environment-matrix.yaml@v1
+
+  cd:
+    name: CD
+    needs:
+      - matrix
+    uses: coreeng/p2p/.github/workflows/platform-cd.yaml@v1
+    permissions:
+      contents: read
+      id-token: write
+      packages: read
+      pull-requests: write
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.matrix.outputs.matrix) }}
+    with:
+      environment: ${{ matrix.environment }}
+      platform: ${{ matrix.platform }}
+      release: ${{ matrix.release }}
+    secrets:
+      cecg-registry-username: ${{ secrets.CECG_DOCKER_USERNAME }}
+      cecg-registry-secret: ${{ secrets.CECG_DOCKER_SECRET }}
